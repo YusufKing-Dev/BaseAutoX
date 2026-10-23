@@ -11,6 +11,10 @@ on:
         options:
           - base-sepolia
           - base
+      existing_address:
+        description: 'Only if the token is ALREADY deployed: its address (skips deploying, just records + verifies)'
+        required: false
+        default: ''
 
 permissions:
   contents: write   # lets the job commit deployments/base.json and index.html after a mainnet deploy
@@ -32,6 +36,7 @@ jobs:
         run: npm test
 
       - name: Deploy
+        if: ${{ github.event.inputs.existing_address == '' }}
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           TREASURY_ADDRESS: ${{ secrets.TREASURY_ADDRESS || '0x0677f145dfd3be8e1a0b714ff53d145b40131397' }}
@@ -44,6 +49,17 @@ jobs:
           else
             npm run deploy:testnet
           fi
+
+      - name: Record and verify existing deployment (no new deploy)
+        if: ${{ github.event.inputs.existing_address != '' }}
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          TREASURY_ADDRESS: ${{ secrets.TREASURY_ADDRESS || '0x0677f145dfd3be8e1a0b714ff53d145b40131397' }}
+          EXISTING_ADDRESS: ${{ github.event.inputs.existing_address }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
+          BASESCAN_API_KEY: ${{ secrets.BASESCAN_API_KEY }}
+        run: npx hardhat run scripts/finalize.js --network ${{ github.event.inputs.network }}
 
       - name: Build site and commit (mainnet only)
         if: ${{ github.event.inputs.network == 'base' }}

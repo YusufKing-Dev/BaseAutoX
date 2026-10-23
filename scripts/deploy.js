@@ -9,6 +9,16 @@ function fmt(wei) {
   return Number(ethers.formatEther(wei)).toLocaleString("en-US") + " BAX";
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Public RPCs sit behind load balancers; a node can lag a few seconds behind the one that
+// accepted the deploy, so reads right after deployment may briefly return empty data.
+async function retry(fn, tries = 15, ms = 4000) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) { if (i >= tries - 1) throw e; await sleep(ms); }
+  }
+}
+
 function fmtDate(ts) {
   return new Date(Number(ts) * 1000).toISOString().split("T")[0];
 }
@@ -36,9 +46,12 @@ async function main() {
   const BAX = await ethers.getContractFactory("BaseAutoXToken");
   const bax = await BAX.deploy(TREASURY_ADDRESS);
   await bax.waitForDeployment();
+  if (network.name !== "hardhat" && network.name !== "localhost") {
+    await bax.deploymentTransaction().wait(2); // let every RPC node catch up
+  }
 
   const contractAddress = await bax.getAddress();
-  const deployedAt = await bax.deployedAt();
+  const deployedAt = await retry(() => bax.deployedAt());
 
   console.log(`\n✓ BaseAutoXToken deployed to: ${contractAddress}`);
   console.log(`  Deployed at    : ${fmtDate(deployedAt)} (${deployedAt})`);
@@ -46,17 +59,17 @@ async function main() {
   // ─── Verify post-deploy state ─────────────────────────────────────────────
 
   console.log("\n── Token Details ─────────────────────────────────");
-  console.log(`  Name       : ${await bax.name()}`);
-  console.log(`  Symbol     : ${await bax.symbol()}`);
-  console.log(`  Decimals   : ${await bax.decimals()}`);
-  console.log(`  Max Supply : ${fmt(await bax.MAX_SUPPLY())}`);
-  console.log(`  Circulating: ${fmt(await bax.totalSupply())}`);
+  console.log(`  Name       : ${await retry(() => bax.name())}`);
+  console.log(`  Symbol     : ${await retry(() => bax.symbol())}`);
+  console.log(`  Decimals   : ${await retry(() => bax.decimals())}`);
+  console.log(`  Max Supply : ${fmt(await retry(() => bax.MAX_SUPPLY()))}`);
+  console.log(`  Circulating: ${fmt(await retry(() => bax.totalSupply()))}`);
 
   console.log("\n── Unlock Schedule ───────────────────────────────");
   const years = [1, 2, 3, 4];
   for (const y of years) {
-    const ts = await bax.unlockTimestamp(y);
-    const claimed = await bax.unlockClaimed(y);
+    const ts = await retry(() => bax.unlockTimestamp(y));
+    const claimed = await retry(() => bax.unlockClaimed(y));
     console.log(
       `  Year ${y}: ${fmtDate(ts)}  claimed=${claimed}`
     );
