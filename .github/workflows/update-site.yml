@@ -1,0 +1,51 @@
+name: Update Site
+
+# Rebuilds index.html from the committed deployments/base.json.
+# Run it whenever you have new links (X, Telegram, logo, GitHub, site URL).
+on:
+  workflow_dispatch:
+    inputs:
+      x:
+        description: 'X (Twitter) URL, e.g. https://x.com/handle'
+        required: false
+      telegram:
+        description: 'Telegram URL, e.g. https://t.me/group'
+        required: false
+      github:
+        description: 'GitHub repo URL'
+        required: false
+      site:
+        description: 'Public site URL (GitHub Pages address)'
+        required: false
+      logo:
+        description: 'Logo image URL (https://...)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build index.html
+        env:
+          X: ${{ github.event.inputs.x }}
+          TG: ${{ github.event.inputs.telegram }}
+          GH: ${{ github.event.inputs.github }}
+          SITE: ${{ github.event.inputs.site }}
+          LOGO: ${{ github.event.inputs.logo }}
+        run: |
+          node scripts/configure-site.js --deployment deployments/base.json \
+            --x "$X" --telegram "$TG" --github "$GH" --site "$SITE" --logo "$LOGO"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Update site" || echo "No changes"
+          git push

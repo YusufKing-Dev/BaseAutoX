@@ -1,0 +1,59 @@
+name: Deploy BAX Token
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network to deploy to'
+        required: true
+        default: 'base-sepolia'
+        type: choice
+        options:
+          - base-sepolia
+          - base
+
+permissions:
+  contents: write   # lets the job commit deployments/base.json and index.html after a mainnet deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Deploy
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          TREASURY_ADDRESS: ${{ secrets.TREASURY_ADDRESS || '0x0677f145dfd3be8e1a0b714ff53d145b40131397' }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          BASE_SEPOLIA_RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC_URL }}
+          BASESCAN_API_KEY: ${{ secrets.BASESCAN_API_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.network }}" = "base" ]; then
+            npm run deploy:mainnet
+          else
+            npm run deploy:testnet
+          fi
+
+      - name: Build site and commit (mainnet only)
+        if: ${{ github.event.inputs.network == 'base' }}
+        run: |
+          node scripts/configure-site.js --deployment deployments/base.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f deployments/base.json index.html
+          git commit -m "Deploy BAX token and build site"
+          git push
+
+      - name: Show result
+        run: cat deployments/*.json
