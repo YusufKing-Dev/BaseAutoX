@@ -1,0 +1,30 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "contract": "0x11616c353098EF7C8D911fD83bEaD2fC65AE5613",
+  "treasury": "0x0677f145dfd3be8e1a0b714ff53d145b40131397",
+  "deployer": "0x0677f145dFd3be8E1a0b714FF53d145B40131397",
+  "deployedAt": 1792779609,
+  "deployedAtISO": "2026-10-23",
+  "maxSupply": "430000000",
+  "genesisSupply": "64500000",
+  "annualUnlock": "91375000",
+  "unlockSchedule": [
+    {
+      "year": 1,
+      "unlockDate": "2027-10-23"
+    },
+    {
+      "year": 2,
+      "unlockDate": "2028-10-22"
+    },
+    {
+      "year": 3,
+      "unlockDate": "2029-10-22"
+    },
+    {
+      "year": 4,
+      "unlockDate": "2030-10-22"
+    }
+  ]
+}
